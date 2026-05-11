@@ -1,6 +1,6 @@
-# revoked.link — Docs
+# revoked — Docs
 
-API documentation for [revoked.link](https://revoked.link), built with [Scalar](https://scalar.com) and hosted on GitHub Pages.
+API documentation for [revoked](https://revoked.link), built with [Scalar](https://scalar.com) and hosted on GitHub Pages.
 
 ## Live Docs
 
