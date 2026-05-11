@@ -15,24 +15,32 @@ permissions:
   pages: write
   id-token: write
 
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
 jobs:
   deploy:
-    name: Build & Deploy to GitHub Pages
+    name: Build & Deploy
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Copy spec for new version (on api-released event)
+      - name: Copy spec for new version
         if: github.event_name == 'repository_dispatch'
         run: |
           VERSION=${{ github.event.client_payload.version }}
           mkdir -p specs
           # Copy latest openapi.yaml as the versioned spec
-          cp specs/latest.yaml specs/${VERSION}.yaml || echo "No latest.yaml yet, skipping copy"
+          cp specs/latest.yaml specs/${VERSION}.yaml || echo "No latest.yaml yet"
           echo "Versioned spec saved as specs/${VERSION}.yaml"
 
       - name: Rebuild versions list
@@ -40,7 +48,6 @@ jobs:
           # Generate versions.json from all spec files
           VERSIONS=$(ls specs/*.yaml 2>/dev/null | grep -v latest | sort -V -r | xargs -I{} basename {} .yaml | jq -R . | jq -s .)
           echo "{ \"versions\": $VERSIONS }" > versions.json
-          cat versions.json
 
       - name: Inject versions into index.html
         run: |
@@ -49,21 +56,25 @@ jobs:
             VERSION=$(basename $f .yaml)
             SOURCES="${SOURCES}{ \"title\": \"${VERSION}\", \"url\": \"./specs/${VERSION}.yaml\" },"
           done
-          # Remove trailing comma
           SOURCES="[${SOURCES%,}]"
           sed -i "s|__VERSIONS__|${SOURCES}|g" index.html
 
-      - name: Commit versions.json
+      - name: Commit changes back to repo
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add versions.json specs/ index.html
-          git diff --staged --quiet || git commit -m "chore: rebuild docs [skip ci]"
-          git push
+          # Only commit if there are actual changes
+          git diff --staged --quiet || (git commit -m "chore: update docs for ${{ github.event.client_payload.version || 'manual update' }} [skip ci]" && git push)
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "."
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .
-          exclude_assets: '.github,*.md'
+        id: deployment
+        uses: actions/deploy-pages@v4
