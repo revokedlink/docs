@@ -8,7 +8,7 @@ on:
       - 'specs/**'
       - 'index.html'
   repository_dispatch:
-    types: [api-released]
+    types: [ api-released ]
 
 permissions:
   contents: write
@@ -50,16 +50,19 @@ jobs:
 
       - name: Inject versions into index.html
         run: |
-          SOURCES='{"title":"Latest","url":"specs/latest.yaml"}'
+          SOURCES='{"title":"Latest","slug":"latest","url":"specs/latest.yaml","default":true}'
           
-          for f in $(ls specs/*.yaml 2>/dev/null | grep -v latest | sort -V -r); do
-            VERSION=$(basename $f .yaml)
-            SOURCES="${SOURCES},{\"title\":\"${VERSION}\",\"url\":\"specs/${VERSION}.yaml\"}"
+          for f in $(ls specs/*.yaml 2>/dev/null | grep -v 'latest.yaml' | sort -V -r); do
+            VERSION=$(basename "$f" .yaml)
+            SOURCES="${SOURCES},{\"title\":\"${VERSION}\",\"slug\":\"${VERSION}\",\"url\":\"specs/${VERSION}.yaml\"}"
           done
           
           FINAL_SOURCES="[${SOURCES}]"
           
-          sed -i "s|__VERSIONS__|${FINAL_SOURCES}|g" index.html
+          cp index.html index.tmp.html
+          sed "s|__VERSIONS__|${FINAL_SOURCES}|g" index.tmp.html > index.html
+          rm -f index.tmp.html
+
 
       - name: Commit data changes ONLY
         run: |
