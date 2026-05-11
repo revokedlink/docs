@@ -50,19 +50,21 @@ jobs:
 
       - name: Inject versions into index.html
         run: |
-          SOURCES='{"title":"Latest","slug":"latest","url":"specs/latest.yaml","default":true}'
+          SOURCES=""
           
-          for f in $(ls specs/*.yaml 2>/dev/null | grep -v 'latest.yaml' | sort -V -r); do
+          for f in $(ls specs/v*.yaml 2>/dev/null | sort -V -r); do
             VERSION=$(basename "$f" .yaml)
-            SOURCES="${SOURCES},{\"title\":\"${VERSION}\",\"slug\":\"${VERSION}\",\"url\":\"specs/${VERSION}.yaml\"}"
+          
+            if [ -z "$SOURCES" ]; then
+              SOURCES="{\"title\":\"${VERSION}\",\"slug\":\"${VERSION}\",\"url\":\"specs/${VERSION}.yaml\",\"default\":true}"
+            else
+              SOURCES="${SOURCES},{\"title\":\"${VERSION}\",\"slug\":\"${VERSION}\",\"url\":\"specs/${VERSION}.yaml\"}"
+            fi
           done
           
           FINAL_SOURCES="[${SOURCES}]"
           
-          cp index.html index.tmp.html
-          sed "s|__VERSIONS__|${FINAL_SOURCES}|g" index.tmp.html > index.html
-          rm -f index.tmp.html
-
+          sed -i "s|__VERSIONS__|${FINAL_SOURCES}|g" index.html
 
       - name: Commit data changes ONLY
         run: |
