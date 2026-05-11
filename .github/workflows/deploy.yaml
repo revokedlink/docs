@@ -39,7 +39,6 @@ jobs:
         run: |
           VERSION=${{ github.event.client_payload.version }}
           mkdir -p specs
-          # Copy latest openapi.yaml as the versioned spec
           cp specs/latest.yaml specs/${VERSION}.yaml || echo "No latest.yaml yet"
           echo "Versioned spec saved as specs/${VERSION}.yaml"
 
@@ -51,21 +50,25 @@ jobs:
 
       - name: Inject versions into index.html
         run: |
-          SOURCES=""
+          SOURCES='{"title":"Latest","url":"specs/latest.yaml"}'
+          
           for f in $(ls specs/*.yaml 2>/dev/null | grep -v latest | sort -V -r); do
             VERSION=$(basename $f .yaml)
-            SOURCES="${SOURCES}{ \"title\": \"${VERSION}\", \"url\": \"./specs/${VERSION}.yaml\" },"
+            SOURCES="${SOURCES},{\"title\":\"${VERSION}\",\"url\":\"specs/${VERSION}.yaml\"}"
           done
-          SOURCES="[${SOURCES%,}]"
-          sed -i "s|__VERSIONS__|${SOURCES}|g" index.html
+          
+          FINAL_SOURCES="[${SOURCES}]"
+          
+          sed -i "s|__VERSIONS__|${FINAL_SOURCES}|g" index.html
 
-      - name: Commit changes back to repo
+      - name: Commit data changes ONLY
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add versions.json specs/ index.html
-          # Only commit if there are actual changes
-          git diff --staged --quiet || (git commit -m "chore: update docs for ${{ github.event.client_payload.version || 'manual update' }} [skip ci]" && git push)
+          
+          git add versions.json specs/
+          
+          git diff --staged --quiet || (git commit -m "chore: update specs [skip ci]" && git push)
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
